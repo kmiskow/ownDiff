@@ -1,0 +1,11 @@
+data/
+checkpoint_main.py
+checkpoint_model.py
+eval.py
+results.png
+sentiment-analysis-with-twitter-data-for-apple.ipynb
+TESLA_tweets.ipynb
+lightning_logs/
+models/
+test.py
+train_old.py
