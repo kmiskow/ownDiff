@@ -140,7 +140,7 @@ class StockDDPM(pl.LightningModule):
         aux_loss = self.criterion(x0_pred, residual_target)
         smooth_loss = torch.mean((x0_pred[:, 1:] - x0_pred[:, :-1]) ** 2)
 
-        loss = noise_loss + 0.5 * aux_loss + 0.5 * smooth_loss
+        loss = noise_loss + 0.5 * aux_loss + 1 * smooth_loss
         self.training_losses.append(loss.item())
         self.log("train_loss", loss)
         return loss
