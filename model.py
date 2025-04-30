@@ -4,7 +4,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset
 import pytorch_lightning as pl
 import math
-
+from kan import KAN
 def get_beta_schedule(timesteps, start=1e-4, end=0.02):
     return torch.linspace(start, end, timesteps)
 
@@ -59,29 +59,45 @@ class StockSequenceDataset(Dataset):
             return context, target_close
 
 class DiffusionModel(nn.Module):
-    def __init__(self, context_dim, hidden_dim, context_len, pred_len, output_dim=1, sentiment_dim=0, time_emb_dim=32):
+    def __init__(self, context_dim, hidden_dim, context_len, pred_len, output_dim=1, sentiment_dim=0, time_emb_dim=32,kan = False):
         super().__init__()
         self.time_emb_dim = time_emb_dim
         self.output_dim = output_dim
         self.sentiment_dim = sentiment_dim
 
-        self.context_encoder = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(context_len * context_dim, hidden_dim),
-            nn.ReLU()
-        )
+        if kan:
+            self.context_encoder = nn.Sequential(
+                nn.Flatten(),
+                KAN([context_len * context_dim, hidden_dim])
+            )
+        else:
+            self.context_encoder = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(context_len * context_dim, hidden_dim),
+                nn.ReLU()
+            )
 
         input_size = output_dim + time_emb_dim + hidden_dim + (sentiment_dim if sentiment_dim > 0 else 0)
 
         self.tanh = nn.Tanh()
         self.sigm = nn.Sigmoid()
-
-        self.prediction_net = nn.Sequential(
-            nn.Linear(input_size, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim)
-        )
-        self.out_layer = nn.Linear(hidden_dim, output_dim)
+        if kan:
+            self.prediction_net = nn.Sequential(
+                KAN([input_size, hidden_dim]),
+                KAN([hidden_dim, hidden_dim])
+            )
+        else:
+            self.prediction_net = nn.Sequential(
+                nn.Linear(input_size, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim)
+            )
+        if kan:
+            self.out_layer = nn.Sequential(
+                KAN([hidden_dim, output_dim]),
+            )
+        else:
+            self.out_layer = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x_t, t, context, sentiment=None):
         B, L, _ = x_t.shape
@@ -98,7 +114,7 @@ class DiffusionModel(nn.Module):
         return self.out_layer(gated).view(B, L, self.output_dim)
 
 class StockDDPM(pl.LightningModule):
-    def __init__(self, context_dim, hidden_dim, use_conditioning=False, sentiment_dim=0,
+    def __init__(self, context_dim, hidden_dim, use_conditioning=False, kan= False, sentiment_dim=0,
                  context_len=360, pred_len=30, timesteps=1000, lr=1e-3):
         super().__init__()
         self.model = DiffusionModel(
@@ -107,7 +123,8 @@ class StockDDPM(pl.LightningModule):
             context_len=context_len,
             pred_len=pred_len,
             output_dim=1,
-            sentiment_dim=sentiment_dim
+            sentiment_dim=sentiment_dim,
+            kan = kan
         )
         self.diffusion = DiffusionUtils(timesteps)
         self.criterion = nn.MSELoss()

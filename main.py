@@ -136,6 +136,7 @@ def evaluate_on_random_windows(model, stock_data, sentiment_data, context_len, p
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--cond", action="store_true", help="Use sentiment conditioning")
+    parser.add_argument("--kan", action="store_true", help="Use KAN layers")
     parser.add_argument("--epochs", type=int, default=300, help="Number of training epochs")
     parser.add_argument("--eval", action="store_true", help="Only evaluate a trained model")
     parser.add_argument("--ckpt_path", type=str, help="Path to model folder (for --eval)")
@@ -173,6 +174,7 @@ def main():
             context_dim=len(STOCK_COLS),
             hidden_dim=128,
             use_conditioning=args.cond,
+            kan = args.kan,
             sentiment_dim=len(SENTIMENT_COLS) if args.cond else 0,
             context_len=CONTEXT_LEN,
             pred_len=PRED_LEN
@@ -194,6 +196,7 @@ def main():
         context_dim=len(STOCK_COLS),
         hidden_dim=128,
         use_conditioning=args.cond,
+        kan = args.kan,
         sentiment_dim=len(SENTIMENT_COLS) if args.cond else 0,
         context_len=CONTEXT_LEN,
         pred_len=PRED_LEN
@@ -203,6 +206,7 @@ def main():
     trainer.fit(model, dataloader)
 
     model_type = "cond" if args.cond else "norm"
+    model_type = model_type + "_kan" if args.kan else model_type 
     model_dir = get_unique_model_dir(model_type)
     trainer.save_checkpoint(str(model_dir / "last.ckpt"))
     save_config(model_dir / "config.json", STOCK_COLS, SENTIMENT_COLS, CONTEXT_LEN, PRED_LEN)
